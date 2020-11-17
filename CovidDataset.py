@@ -3,14 +3,14 @@ import os
 from torch.utils.data import Dataset
 import pathlib
 from skimage import io
-
+import sklearn
 
 class CovidDataset(Dataset):
     base_mp3_folder = "./img/"
 
     def __init__(self, root, train=True, transform=None):
 
-        self.train = train  # training set or test set
+        self.train = train  # training set or validation set
         self.folder = "train"
         
         self.transform = transform
@@ -20,16 +20,30 @@ class CovidDataset(Dataset):
         path_mp3 = self.base_mp3_folder + "train/"
         glob = '*/*.jpg'
 
-        for file_path in pathlib.Path(path_mp3).glob(glob):
-            img_name = os.path.join(file_path)
+        percentage = 0.8
+        list_of_samples, list_of_targets = [], []
+
+        for count, file_path in enumerate(pathlib.Path(path_mp3).glob(glob)):
+            # Ricavo la classe del sample
             if str(file_path).split("\\")[2] == "neg":
                 classe = 0
             else:
                 classe = 1
 
+            img_name = os.path.join(file_path)
             image = io.imread(img_name)
-            self.data.append(image)
-            self.targets.append(classe)
+            list_of_samples.append(image)
+            list_of_targets.append(classe)
+
+        list_of_samples, list_of_targets = sklearn.utils.shuffle(list_of_samples, list_of_targets)
+
+        # Ora se sono nel train prendo i primi n sample, altrimenti gli ultimi
+        if self.train:
+            self.data = list_of_samples[:round(percentage*len(list_of_samples))]
+            self.targets = list_of_targets[:round(percentage*len(list_of_samples))]
+        else:
+            self.data = list_of_samples[round(percentage*len(list_of_samples)):]
+            self.targets = list_of_targets[round(percentage*len(list_of_samples)):]
 
 
     def __getitem__(self, index):
