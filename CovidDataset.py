@@ -6,21 +6,21 @@ from skimage import io
 import sklearn
 
 class CovidDataset(Dataset):
-    base_mp3_folder = "./img/"
 
     def __init__(self, root, train=True, transform=None):
 
-        self.train = train  # training set or validation set
+        self.train = train  # training set or test set
         self.folder = "train"
-        
+        self.root = root
         self.transform = transform
         self.data = []
         self.targets = []
 
-        path_mp3 = self.base_mp3_folder + "train/"
+        path_mp3 = self.root + "train/"
         glob = '*/*.jpg'
 
         percentage = 0.8
+        # devo prendere la metà positivi e metà negativi
         list_of_samples, list_of_targets = [], []
 
         for count, file_path in enumerate(pathlib.Path(path_mp3).glob(glob)):
@@ -44,7 +44,6 @@ class CovidDataset(Dataset):
         else:
             self.data = list_of_samples[round(percentage*len(list_of_samples)):]
             self.targets = list_of_targets[round(percentage*len(list_of_samples)):]
-
 
     def __getitem__(self, index):
         """
