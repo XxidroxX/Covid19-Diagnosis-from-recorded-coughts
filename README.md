@@ -3,7 +3,7 @@ Covid diagnosis based on recorded coughs
 
 Dataset provided by: https://virufy.org/data.html
 
-Network: ResNet50
+Network: ResNet34
 
 ## Parameters ##
 Standard parameters, feel free to change all of them!
