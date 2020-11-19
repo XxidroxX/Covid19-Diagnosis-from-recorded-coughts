@@ -3,12 +3,16 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from PIL import Image
+from skimage import io
 from torch.autograd import Variable
 from torch.optim import lr_scheduler
+import numpy as np
+import torchvision
 from torch.utils.data import DataLoader
 from torchvision import datasets, models, transforms
 import matplotlib.pyplot as plt
 import time
+import os
 import copy
 from CovidDataset import CovidDataset
 
@@ -20,11 +24,11 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
 
     best_model_wts = copy.deepcopy(model.state_dict())
     best_acc = 0.0
-
+    best_loss = 0.0
     plt.figure()
     accuracy = [[], []]
     for epoch in range(num_epochs):
-        print('Epoch {}/{}'.format(epoch, num_epochs - 1))
+        print('Epoch {}/{}'.format(epoch+1, num_epochs))
         print('-' * 10)
 
         # Each epoch has a training and validation phase
@@ -75,16 +79,18 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
                 accuracy[0].append(epoch_acc)
 
             # deep copy the model, if two model have the same accuracy on val set we pick the one with the highest train acc.
-            if phase == 'val' and epoch_acc > best_acc:
+            if phase == 'val' and (epoch_acc > best_acc or (epoch_acc == best_acc and epoch_loss <= best_loss)):
                 best_acc = epoch_acc
+                best_loss = epoch_loss
                 best_model_wts = copy.deepcopy(model.state_dict())
         print()
 
     time_elapsed = time.time() - since
     print('Training complete in {:.0f}m {:.0f}s'.format(time_elapsed // 60, time_elapsed % 60))
     print('Best val Acc: {:4f}'.format(best_acc))
-    plt.plot([i for i in range(0, num_epochs)], accuracy[1], c='red')
-    plt.plot([i for i in range(0, num_epochs)], accuracy[0], c='blue')
+    plt.plot([i for i in range(0, num_epochs)], accuracy[1], label="Validation", c='red')
+    plt.plot([i for i in range(0, num_epochs)], accuracy[0], label="Train", c='blue')
+    plt.legend()
     plt.show()
     # load best model weights
     model.load_state_dict(best_model_wts)
@@ -111,31 +117,33 @@ if __name__ == "__main__":
                                                                                       val_dataset)))
     dataloaders = {'train': train_loader, 'val': val_loader}
 
-    model_ft = models.resnet50(pretrained=True)
+    model_ft = models.resnet34(pretrained=True)
     num_ftrs = model_ft.fc.in_features
     # Here the size of each output sample is set to 2.
     model_ft.fc = nn.Linear(num_ftrs, 2)
     model_ft = model_ft.to(device)
 
-    # TODO: try to change loss function
-    #criterion = nn.CrossEntropyLoss()
-    criterion = nn.BCEWithLogitsLoss()
+    """
+    The parameter pos_weight:
+    * >1 -> increase recall
+    * <1 -> increase precision
+    """
+    criterion = nn.BCEWithLogitsLoss(pos_weight=torch.tensor(5.))
 
     # Observe that all parameters are being optimized
-    optimizer_ft = optim.SGD(model_ft.parameters(), lr=0.001, momentum=0.9, weight_decay=1e-5) #0.001
+    optimizer_ft = optim.SGD(model_ft.parameters(), lr=0.001, momentum=0.9, weight_decay=1e-5)
 
     # Decay LR by a factor of 0.1 every 7 epochs
-    exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=9, gamma=0.2)
+    exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=8, gamma=0.2)
 
-    model_ft = train_model(model_ft, criterion, optimizer_ft, exp_lr_scheduler, num_epochs=30)
+    model_ft = train_model(model_ft, criterion, optimizer_ft, exp_lr_scheduler, num_epochs=25)
     torch.save(model_ft, "./net_with_bce.pth")
 
     model = torch.load("./net_with_bce.pth")
     model.eval()
-    path_mp3 = "img/test/"
     glob = '*.jpg'
 
-
+    #TODO: we can use batch mode instead of one image at time
     def image_loader(image_name):
         """load image, returns cuda tensor"""
         image = Image.open(image_name)
@@ -143,7 +151,6 @@ if __name__ == "__main__":
         image = Variable(image, requires_grad=True)
         image = image.unsqueeze(0)  # this is for VGG, may not be needed for ResNet
         return image.cuda()  # assumes that you're using GPU
-
 
     for file_path in pathlib.Path("./img/test/").glob("*.jpg"):
         image = image_loader(file_path)
