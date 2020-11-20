@@ -2,11 +2,11 @@
 [![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://github.com/XxidroxX/Covid19-Diagnosis-from-recorded-coughts/graphs/commit-activity)
 [![Ask Me Anything !](https://img.shields.io/badge/Ask%20me-anything-1abc9c.svg)](https://github.com/XxidroxX)
 [![forthebadge made-with-python](http://ForTheBadge.com/images/badges/made-with-python.svg)](https://www.python.org/)
-[![GitHub license](https://img.shields.io/github/license/Naereen/StrapDown.js.svg)](https://github.com/XxidroxX/Covid19-Diagnosis-from-recorded-coughts/blob/main/LICENSE)
-[![Github all releases](https://img.shields.io/github/downloads/Naereen/StrapDown.js/total.svg)](https://github.com/XxidroxX/Covid19-Diagnosis-from-recorded-coughts/releases/)
-[![GitHub forks](https://img.shields.io/github/forks/Naereen/StrapDown.js.svg?style=social&label=Fork&maxAge=2592000)](https://github.com/XxidroxX/Covid19-Diagnosis-from-recorded-coughts/network)
-[![GitHub stars](https://img.shields.io/github/stars/Naereen/StrapDown.js.svg?style=social&label=Star&maxAge=2592000)](https://github.com/XxidroxX/Covid19-Diagnosis-from-recorded-coughts/stargazers)
-[![GitHub watchers](https://img.shields.io/github/watchers/Naereen/StrapDown.js.svg?style=social&label=Watch&maxAge=2592000)](https://github.com/XxidroxX/Covid19-Diagnosis-from-recorded-coughts/watchers/)
+[![GitHub license](https://img.shields.io/github/license/XxidroxX/Covid19-Diagnosis-from-recorded-coughts)](https://github.com/XxidroxX/Covid19-Diagnosis-from-recorded-coughts/blob/main/LICENSE)
+[![Github all releases](https://img.shields.io/github/downloads/XxidroxX/Covid19-Diagnosis-from-recorded-coughts/total)](https://github.com/XxidroxX/Covid19-Diagnosis-from-recorded-coughts/releases/)
+[![GitHub forks](https://img.shields.io/github/forks/XxidroxX/Covid19-Diagnosis-from-recorded-coughts?style=social)](https://github.com/XxidroxX/Covid19-Diagnosis-from-recorded-coughts/network)
+[![GitHub stars](https://img.shields.io/github/stars/XxidroxX/Covid19-Diagnosis-from-recorded-coughts?style=social)](https://github.com/XxidroxX/Covid19-Diagnosis-from-recorded-coughts/stargazers)
+[![GitHub watchers](https://img.shields.io/github/watchers/XxidroxX/Covid19-Diagnosis-from-recorded-coughts?style=social)](https://github.com/XxidroxX/Covid19-Diagnosis-from-recorded-coughts/watchers/)
 [![Open Source Love svg2](https://badges.frapsoft.com/os/v2/open-source.svg?v=103)]()
 
 A simple neural network written with PyTorch to diagnostic covid19 from recorded coughs. Since the dataset is small, we do not achieve a high value of reliability but overall it is not so bad.
