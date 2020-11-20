@@ -23,8 +23,8 @@ For what concerning the data augmentation, I used the classic transformations su
 Download the files and extract them in a folder. 
 
 ## Usage
-```python
-python path/to/the/main.py
+```console
+foo@bar:~$ python path/to/the/main.py
 ```
 
 ## Parameters ##
