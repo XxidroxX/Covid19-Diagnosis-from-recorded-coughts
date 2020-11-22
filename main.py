@@ -3,18 +3,15 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from PIL import Image
-from skimage import io
 from torch.autograd import Variable
 from torch.optim import lr_scheduler
-import numpy as np
-import torchvision
 from torch.utils.data import DataLoader
-from torchvision import datasets, models, transforms
+from torchvision import models, transforms
 import matplotlib.pyplot as plt
 import time
-import os
 import copy
 from CovidDataset import CovidDataset
+import sys
 
 def to_onehot(targets, n_classes):
     return torch.eye(n_classes)[targets]
@@ -99,6 +96,25 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
 
 if __name__ == "__main__":
     device = "cuda"
+
+    """
+    Create parameters from terminal
+    """
+    parameters = dict()
+    for arg in sys.argv[1:]:
+        parameter = arg[2:].split("=")[0]
+        value = arg[2:].split("=")[1]
+        if parameter == 'epoch':
+            parameters['epochs'] = int(value)
+        elif parameter == 'lr':
+            parameters['lr'] = float(value)
+        elif parameter == 'gamma':
+            parameters['gamma'] = float(value)
+        elif parameter == 'step':
+            parameters['step_size'] = int(value)
+    if len(parameters) != 4:
+        raise ValueError('The number of parameters is wrong!!')
+
     trans = [transforms.RandomHorizontalFlip(p=0.5), transforms.RandomVerticalFlip(p=0.5), transforms.RandomGrayscale(p=0.5)]
     #TODO: normalize images?
     train_transforms = transforms.Compose([transforms.Resize([224, 224]),
@@ -131,21 +147,20 @@ if __name__ == "__main__":
     criterion = nn.BCEWithLogitsLoss(pos_weight=torch.tensor(5.))
 
     # Observe that all parameters are being optimized
-    optimizer_ft = optim.SGD(model_ft.parameters(), lr=0.001, momentum=0.9, weight_decay=1e-5)
+    optimizer_ft = optim.SGD(model_ft.parameters(), lr=parameters['lr'], momentum=0.9, weight_decay=1e-5)
 
     # Decay LR by a factor of 0.1 every 7 epochs
-    exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=8, gamma=0.2)
+    exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=parameters['step_size'], gamma=parameters['gamma'])
 
-    model_ft = train_model(model_ft, criterion, optimizer_ft, exp_lr_scheduler, num_epochs=25)
+    model_ft = train_model(model_ft, criterion, optimizer_ft, exp_lr_scheduler, num_epochs=parameters['epochs'])
     torch.save(model_ft, "./net_with_bce.pth")
-
+    
     model = torch.load("./net_with_bce.pth")
     model.eval()
-    glob = '*.jpg'
 
     #TODO: we can use batch mode instead of one image at time
     def image_loader(image_name):
-        """load image, returns cuda tensor"""
+        #load image, returns cuda tensor
         image = Image.open(image_name)
         image = val_transforms(image).float()
         image = Variable(image, requires_grad=True)
