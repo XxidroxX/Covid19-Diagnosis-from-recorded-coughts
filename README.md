@@ -24,7 +24,7 @@ Download the files and extract them in a folder.
 
 ## Usage
 ```console
-foo@bar:~$ python path/to/the/main.py
+foo@bar:~$ python path/to/the/main.py --epoch=25 --lr=0.001 --step=8 --gamma=0.2
 ```
 
 ## Parameters ##
@@ -39,8 +39,7 @@ Pull requests are welcome. For major changes, please open an issue first to disc
 If you want, you can send me your recorded cough to increase the dataset size. 
 
 ## TODO
-- [ ] choose the parameters from the cmd when you run the script without open the file .py
+- [x] choose the parameters from the cmd when you run the script without open the file .py
 - [ ] Try with more combinations of parameters.
-- [x] Create my first TODO.md  
 - [x] Implementing BCE Loss function
 - [x] Code cleanup
