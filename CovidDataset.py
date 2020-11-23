@@ -7,7 +7,7 @@ import sklearn
 
 class CovidDataset(Dataset):
 
-    def __init__(self, root, train=True, transform=None):
+    def __init__(self, root, train=True, transform=None, train_size=0.7):
 
         self.train = train  # training set or test set
         self.folder = "train"
@@ -19,12 +19,9 @@ class CovidDataset(Dataset):
         path_mp3 = self.root + "train/"
         glob = '*/*.jpg'
 
-        percentage = 0.8
-        # devo prendere la metà positivi e metà negativi
         list_of_samples, list_of_targets = [], []
 
         for count, file_path in enumerate(pathlib.Path(path_mp3).glob(glob)):
-            # Ricavo la classe del sample
             if str(file_path).split("\\")[2] == "neg":
                 classe = 0
             else:
@@ -37,13 +34,12 @@ class CovidDataset(Dataset):
 
         list_of_samples, list_of_targets = sklearn.utils.shuffle(list_of_samples, list_of_targets)
 
-        # Ora se sono nel train prendo i primi n sample, altrimenti gli ultimi
         if self.train:
-            self.data = list_of_samples[:round(percentage*len(list_of_samples))]
-            self.targets = list_of_targets[:round(percentage*len(list_of_samples))]
+            self.data = list_of_samples[:round(train_size*len(list_of_samples))]
+            self.targets = list_of_targets[:round(train_size*len(list_of_samples))]
         else:
-            self.data = list_of_samples[round(percentage*len(list_of_samples)):]
-            self.targets = list_of_targets[round(percentage*len(list_of_samples)):]
+            self.data = list_of_samples[round(train_size*len(list_of_samples)):]
+            self.targets = list_of_targets[round(train_size*len(list_of_samples)):]
 
     def __getitem__(self, index):
         """
@@ -60,10 +56,6 @@ class CovidDataset(Dataset):
         if self.transform is not None:
             img = self.transform(img)
 
-        """
-        if self.target_transform is not None:
-            target = self.target_transform(target)
-        """
         return img, target
 
     def __len__(self):

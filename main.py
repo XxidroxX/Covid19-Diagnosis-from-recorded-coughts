@@ -112,7 +112,9 @@ if __name__ == "__main__":
             parameters['gamma'] = float(value)
         elif parameter == 'step':
             parameters['step_size'] = int(value)
-    if len(parameters) != 4:
+        elif parameter == 'train':
+            parameters['train_size'] = float(value)
+    if len(parameters) != 5:
         raise ValueError('The number of parameters is wrong!!')
 
     trans = [transforms.RandomHorizontalFlip(p=0.5), transforms.RandomVerticalFlip(p=0.5), transforms.RandomGrayscale(p=0.5)]
@@ -123,10 +125,10 @@ if __name__ == "__main__":
 
     val_transforms = transforms.Compose([transforms.ToTensor()])
 
-    train_dataset = CovidDataset("./img/", train=True, transform=train_transforms)
+    train_dataset = CovidDataset("./img/", train=True, transform=train_transforms, train_size=parameters['train_size'])
     train_loader = DataLoader(dataset=train_dataset, shuffle=True, num_workers=4, batch_size=11)
 
-    val_dataset = CovidDataset("./img/", train=False, transform=val_transforms)
+    val_dataset = CovidDataset("./img/", train=False, transform=val_transforms, train_size=parameters['train_size'])
     val_loader = DataLoader(dataset=val_dataset, shuffle=True, num_workers=4, batch_size=11)
     print("Train samples: {}\nValidation samples: {}\nTotal samples: {}\n".format(len(train_dataset), len(val_dataset),
                                                                                   len(train_dataset) + len(
