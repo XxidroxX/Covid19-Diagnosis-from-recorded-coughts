@@ -40,6 +40,9 @@ If you want, you can send me your recorded cough to increase the dataset size.
 
 ## TODO
 - [x] choose the parameters from the cmd when you run the script without open the file .py
-- [ ] Try with more combinations of parameters.
+- [ ] better pre-processing phase (e.g. normalization or PCA).
+- [ ] Curse of dimensionality. We have more features than samples and this can lead to overfit the model.
+- [ ] from terminal we can choose the classifier from a list.
+- [ ] dummy variables or simply LabelEncoder()? Dummy var. are in general better but PCA and some classifiers can have a problem with that.
 - [x] Implementing BCE Loss function
 - [x] Code cleanup
