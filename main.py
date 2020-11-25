@@ -1,17 +1,25 @@
 import pathlib
 import torch
+from sklearn.svm import SVC
+import numpy as np
 import torch.nn as nn
 import torch.optim as optim
+from sklearn.decomposition import PCA
+import pandas as pd
 from PIL import Image
 from torch.autograd import Variable
 from torch.optim import lr_scheduler
 from torch.utils.data import DataLoader
 from torchvision import models, transforms
+from sklearn.preprocessing import LabelEncoder
 import matplotlib.pyplot as plt
 import time
 import copy
+from sklearn.neighbors import KNeighborsClassifier
 from CovidDataset import CovidDataset
 import sys
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import classification_report
 
 def to_onehot(targets, n_classes):
     return torch.eye(n_classes)[targets]
@@ -39,7 +47,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
             running_corrects = 0
 
             # Iterate over data.
-            for inputs, labels in dataloaders[phase]:
+            for inputs, labels, _ in dataloaders[phase]:
                 inputs = inputs.to(device)
                 labels = labels.to(device)
 
@@ -96,6 +104,9 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
 
 if __name__ == "__main__":
     device = "cuda"
+    #a = PrepareDataset()
+    #a.createTrain()
+    #a.createTest()
 
     """
     Create parameters from terminal
@@ -140,7 +151,7 @@ if __name__ == "__main__":
     # Here the size of each output sample is set to 2.
     model_ft.fc = nn.Linear(num_ftrs, 2)
     model_ft = model_ft.to(device)
-
+    
     """
     The parameter pos_weight:
     * >1 -> increase recall
@@ -156,9 +167,13 @@ if __name__ == "__main__":
 
     model_ft = train_model(model_ft, criterion, optimizer_ft, exp_lr_scheduler, num_epochs=parameters['epochs'])
     torch.save(model_ft, "./net_with_bce.pth")
-    
+
     model = torch.load("./net_with_bce.pth")
+    model.to("cpu")
     model.eval()
+
+    ### strip the last layer
+    feature_extractor = torch.nn.Sequential(*list(model.children())[:-1])
 
     #TODO: we can use batch mode instead of one image at time
     def image_loader(image_name):
@@ -169,9 +184,118 @@ if __name__ == "__main__":
         image = image.unsqueeze(0)  # this is for VGG, may not be needed for ResNet
         return image.cuda()  # assumes that you're using GPU
 
+    data, label, age, gender, \
+    medical_history, smoker, patient_symptoms, filename = list(), list(), \
+                                                          list(), list(), list(), list(), list(), list()
+
+    with open("labels.csv") as csv:
+        for index, line in enumerate(csv):
+            if index == 0:
+                features_name = line.replace("\n", "").replace("corona_test,", "").split(",")
+            else:
+                features = line.replace("\n", "").split('"')
+                data.append(features[0].split(",")[0])
+                #label.append(features[0].split(",")[1])
+                age.append(int(features[0].split(",")[2]))
+                gender.append(features[0].split(",")[3].lower())
+
+                medical_history.append(features[1][:-1].lower())
+                smoker.append(features[2][1:-1].lower())
+                patient_symptoms.append(features[3][:-1].lower())
+                filename.append(features[4][1:].replace(".mp3", ""))
+
+    data = {features_name[0]: data,
+            #features_name[1]: label,
+            features_name[1]: age,
+            features_name[2]: gender,
+            features_name[3]: medical_history,
+            features_name[4]: smoker,
+            features_name[5]: patient_symptoms,
+            features_name[6]: filename}
+
+    df = pd.DataFrame(data, columns=features_name)
+
+    df['smoker'] = LabelEncoder().fit_transform(df['smoker'])
+
+    med_history = list()
+    # medical_history, unique values
+    for i in df.medical_history:
+        for j in i.split(","):
+            if j not in med_history and j != 'none':
+                med_history.append(i)
+
+    for index, mh in enumerate(med_history):
+        df['history_'+str(index)] = df.medical_history.str.contains(mh).astype(int)
+
+    med_sym = list()
+    # medical_history, unique values
+    for i in df.patient_reported_symptoms:
+        for j in i.split(","):
+            if j not in med_sym and j != 'none':
+                med_sym.append(j)
+    for index, mh in enumerate(med_sym):
+        df['symptom_' + str(index)] = df.patient_reported_symptoms.str.contains(mh).astype(int)
+
+    df['gender'] = LabelEncoder().fit_transform(df['gender'])
+
+    #DELETE OLD FEATURES
+    df.drop(columns=["medical_history", "patient_reported_symptoms"], inplace=True)
+    # Table for machine learning algo.
+    table_selected = [features_name[1], features_name[2], features_name[4]]
+    table_selected.extend(['history_'+str(i) for i, _ in enumerate(med_history)])
+    table_selected.extend(['symptom_'+str(i) for i, _ in enumerate(med_sym)])
+    """
+    Filename explanation: neg-date-CODE-cough-sex-age-nSample.mp3
+    """
+    def my_func(df_a, truel):
+        results = []
+        for name in df_a:
+            if truel.split("-")[0]+"-"+truel.split("-")[1] in name and \
+                    truel.split("-")[4] + "-" + truel.split("-")[5] in name:
+                results.append(True)
+            else:
+                results.append(False)
+        return results
+
+    X_train, X_test, y_train, y_test = list(), list(), list(), list()
+    for image, label, img_name in train_loader.dataset:
+        """
+        Feature extractor, combine with the data from csv
+        """
+        image = image.unsqueeze(0)
+        outputs = feature_extractor(image)
+        outputs = outputs.view(-1).tolist()
+
+        sample = df.loc[my_func(df['cough_filename'], img_name), table_selected].values.tolist()
+        outputs.extend(sample[0])
+        X_train.append(outputs)
+        y_train.append(label)
+
+    for image, label, img_name in val_loader.dataset:
+        image = image.unsqueeze(0)#.to(device)
+        outputs = feature_extractor(image)
+        outputs = outputs.view(-1).tolist()
+        sample = df.loc[my_func(df['cough_filename'], img_name), table_selected].values.tolist()
+        outputs.extend(sample[0])
+        X_test.append(outputs)
+        y_test.append(label)
+
+    """
+    TODO: add more classifier. From terminal an user can select the clf.
+    """
+    knn = KNeighborsClassifier(n_neighbors=7)
+    knn.fit(X_train, y_train)
+    y_pred = knn.predict(X_test)
+    print(classification_report(y_test, y_pred))
+    """
+    These lines are for the prediction of my sample
+    """
     for file_path in pathlib.Path("./img/test/").glob("*.jpg"):
-        image = image_loader(file_path)
-        image = model(image)
-        _, pred = torch.max(image, 1)
-        m = nn.Softmax(dim=1)
-        print(str(file_path), pred.data.cpu().numpy(), m(image).data.cpu().numpy())
+        image = image_loader(file_path).to("cpu")
+        img_name = str(file_path).split("\\")[2].replace(".jpg", "")
+        outputs = feature_extractor(image)
+        outputs = outputs.view(-1).tolist()
+        sample = df.loc[my_func(df['cough_filename'], img_name), table_selected].values.tolist()
+        outputs.extend(sample[0])
+        y_pred = knn.predict([outputs])
+        print(str(file_path), y_pred)
