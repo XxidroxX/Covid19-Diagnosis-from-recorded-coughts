@@ -24,7 +24,7 @@ Download the files and extract them in a folder.
 
 ## Usage
 ```console
-foo@bar:~$ python path/to/the/main.py --epoch=25 --lr=0.001 --step=8 --gamma=0.2
+foo@bar:~$ python path/to/the/main.py --epoch=25 --lr=0.001 --step=8 --gamma=0.2 --train=0.7
 ```
 
 ## Parameters ##
