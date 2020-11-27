@@ -3,6 +3,7 @@ import torch
 from sklearn.svm import SVC
 import numpy as np
 import torch.nn as nn
+from sklearn.ensemble import RandomForestClassifier
 import torch.optim as optim
 from sklearn.decomposition import PCA
 import pandas as pd
@@ -176,6 +177,7 @@ if __name__ == "__main__":
     feature_extractor = torch.nn.Sequential(*list(model.children())[:-1])
 
     #TODO: we can use batch mode instead of one image at time
+    #TODO: rimuovere pos/neg dai file di test e controllare la funzione my_func
     def image_loader(image_name):
         #load image, returns cuda tensor
         image = Image.open(image_name)
@@ -195,9 +197,8 @@ if __name__ == "__main__":
             else:
                 features = line.replace("\n", "").split('"')
                 data.append(features[0].split(",")[0])
-                #label.append(features[0].split(",")[1])
-                age.append(int(features[0].split(",")[2]))
-                gender.append(features[0].split(",")[3].lower())
+                age.append(int(features[0].split(",")[1]))
+                gender.append(features[0].split(",")[2].lower())
 
                 medical_history.append(features[1][:-1].lower())
                 smoker.append(features[2][1:-1].lower())
@@ -205,7 +206,6 @@ if __name__ == "__main__":
                 filename.append(features[4][1:].replace(".mp3", ""))
 
     data = {features_name[0]: data,
-            #features_name[1]: label,
             features_name[1]: age,
             features_name[2]: gender,
             features_name[3]: medical_history,
@@ -244,48 +244,53 @@ if __name__ == "__main__":
     table_selected = [features_name[1], features_name[2], features_name[4]]
     table_selected.extend(['history_'+str(i) for i, _ in enumerate(med_history)])
     table_selected.extend(['symptom_'+str(i) for i, _ in enumerate(med_sym)])
+
     """
-    Filename explanation: neg-date-CODE-cough-sex-age-nSample.mp3
+    Filename explanation:
+    * train/val: neg-date-CODE-cough-sex-age-nSample.jpg
+    * test     : date-CODE-cough-sex-age-nSample.jpg
     """
-    def my_func(df_a, truel):
-        results = []
+    def my_func(df_a, truel, test=False):
+        results   = []
+        if not test:
+            indexes   = [2, 4, 5]
+        else:
+            indexes = [1, 3, 4]
+
         for name in df_a:
-            if truel.split("-")[0]+"-"+truel.split("-")[1] in name and \
-                    truel.split("-")[4] + "-" + truel.split("-")[5] in name:
+            if "-"+truel.split("-")[indexes[0]]+"-" in name and \
+                    truel.split("-")[indexes[1]] + "-" + truel.split("-")[indexes[2]] in name:
                 results.append(True)
             else:
                 results.append(False)
         return results
 
-    X_train, X_test, y_train, y_test = list(), list(), list(), list()
-    for image, label, img_name in train_loader.dataset:
-        """
-        Feature extractor, combine with the data from csv
-        """
-        image = image.unsqueeze(0)
-        outputs = feature_extractor(image)
-        outputs = outputs.view(-1).tolist()
 
-        sample = df.loc[my_func(df['cough_filename'], img_name), table_selected].values.tolist()
-        outputs.extend(sample[0])
-        X_train.append(outputs)
-        y_train.append(label)
+    def union_features(dataset):
+        X, y = list(), list()
+        for image, label, img_name in dataset:
+            """
+            Feature extractor, combine with the data from csv
+            """
+            image = image.unsqueeze(0)
+            outputs = feature_extractor(image)
+            outputs = outputs.view(-1).tolist()
+            sample = df.loc[my_func(df['cough_filename'], img_name), table_selected].values.tolist()
+            outputs.extend(sample[0])
+            X.append(outputs)
+            y.append(label)
+        return X, y
 
-    for image, label, img_name in val_loader.dataset:
-        image = image.unsqueeze(0)#.to(device)
-        outputs = feature_extractor(image)
-        outputs = outputs.view(-1).tolist()
-        sample = df.loc[my_func(df['cough_filename'], img_name), table_selected].values.tolist()
-        outputs.extend(sample[0])
-        X_test.append(outputs)
-        y_test.append(label)
+    X_train, y_train = union_features(train_dataset)
+    X_test,  y_test  = union_features(val_dataset)
 
     """
-    TODO: add more classifier. From terminal an user can select the clf.
+    TODO: add more classifiers. From terminal an user can select the clf.
     """
-    knn = KNeighborsClassifier(n_neighbors=7)
-    knn.fit(X_train, y_train)
-    y_pred = knn.predict(X_test)
+    #clf = KNeighborsClassifier(n_neighbors=7)
+    clf = RandomForestClassifier()
+    clf.fit(X_train, y_train)
+    y_pred = clf.predict(X_test)
     print(classification_report(y_test, y_pred))
     """
     These lines are for the prediction of my sample
@@ -295,7 +300,7 @@ if __name__ == "__main__":
         img_name = str(file_path).split("\\")[2].replace(".jpg", "")
         outputs = feature_extractor(image)
         outputs = outputs.view(-1).tolist()
-        sample = df.loc[my_func(df['cough_filename'], img_name), table_selected].values.tolist()
+        sample = df.loc[my_func(df['cough_filename'], img_name, True), table_selected].values.tolist()
         outputs.extend(sample[0])
-        y_pred = knn.predict([outputs])
+        y_pred = clf.predict([outputs])
         print(str(file_path), y_pred)
