@@ -44,5 +44,6 @@ If you want, you can send me your recorded cough to increase the dataset size.
 - [ ] Curse of dimensionality. We have more features than samples and this can lead to overfit the model.
 - [ ] from terminal we can choose the classifier from a list.
 - [ ] dummy variables or simply LabelEncoder()? Dummy var. are in general better but PCA and some classifiers can have a problem with that.
+- [ ] use keras instead of pytorch?
 - [x] Implementing BCE Loss function
 - [x] Code cleanup
