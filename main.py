@@ -7,8 +7,6 @@ from sklearn.ensemble import RandomForestClassifier
 import torch.optim as optim
 from sklearn.decomposition import PCA
 import pandas as pd
-from PIL import Image
-from torch.autograd import Variable
 from torch.optim import lr_scheduler
 from torch.utils.data import DataLoader
 from torchvision import models, transforms
@@ -19,8 +17,10 @@ import copy
 from sklearn.neighbors import KNeighborsClassifier
 from CovidDataset import CovidDataset
 import sys
+import os
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import classification_report
+import utils
 
 def to_onehot(targets, n_classes):
     return torch.eye(n_classes)[targets]
@@ -113,7 +113,7 @@ if __name__ == "__main__":
     Create parameters from terminal
     """
     parameters = dict()
-    for arg in sys.argv[1:]:
+    for arg in sys.argv[2:]:
         parameter = arg[2:].split("=")[0]
         value = arg[2:].split("=")[1]
         if parameter == 'epoch':
@@ -126,7 +126,15 @@ if __name__ == "__main__":
             parameters['step_size'] = int(value)
         elif parameter == 'train':
             parameters['train_size'] = float(value)
-    if len(parameters) != 5:
+        elif parameter == 'clf':
+            if value.lower() == 'rf':
+                parameters['clf'] = RandomForestClassifier()
+            elif value.lower() == 'knn':
+                parameters['clf'] = KNeighborsClassifier(n_neighbors=7)
+            else:
+                raise ValueError('Wrong classifier!')
+    img_folder = sys.argv[1]
+    if len(parameters) != 6:
         raise ValueError('The number of parameters is wrong!!')
 
     trans = [transforms.RandomHorizontalFlip(p=0.5), transforms.RandomVerticalFlip(p=0.5), transforms.RandomGrayscale(p=0.5)]
@@ -137,37 +145,38 @@ if __name__ == "__main__":
 
     val_transforms = transforms.Compose([transforms.ToTensor()])
 
-    train_dataset = CovidDataset("./img/", train=True, transform=train_transforms, train_size=parameters['train_size'])
-    train_loader = DataLoader(dataset=train_dataset, shuffle=True, num_workers=4, batch_size=11)
+    train_dataset = CovidDataset(img_folder, train=True, transform=train_transforms, train_size=parameters['train_size'])
+    train_loader  = DataLoader(dataset=train_dataset, shuffle=True, num_workers=4, batch_size=11)
 
-    val_dataset = CovidDataset("./img/", train=False, transform=val_transforms, train_size=parameters['train_size'])
-    val_loader = DataLoader(dataset=val_dataset, shuffle=True, num_workers=4, batch_size=11)
+    val_dataset   = CovidDataset(img_folder, train=False, transform=val_transforms, train_size=parameters['train_size'])
+    val_loader    = DataLoader(dataset=val_dataset, shuffle=True, num_workers=4, batch_size=11)
     print("Train samples: {}\nValidation samples: {}\nTotal samples: {}\n".format(len(train_dataset), len(val_dataset),
                                                                                   len(train_dataset) + len(
                                                                                       val_dataset)))
     dataloaders = {'train': train_loader, 'val': val_loader}
 
-    model_ft = models.resnet34(pretrained=True)
-    num_ftrs = model_ft.fc.in_features
-    # Here the size of each output sample is set to 2.
-    model_ft.fc = nn.Linear(num_ftrs, 2)
-    model_ft = model_ft.to(device)
-    
-    """
-    The parameter pos_weight:
-    * >1 -> increase recall
-    * <1 -> increase precision
-    """
-    criterion = nn.BCEWithLogitsLoss(pos_weight=torch.tensor(5.))
+    if not os.path.isfile("./net_with_bce.pth"):
+        model_ft = models.resnet34(pretrained=True)
+        num_ftrs = model_ft.fc.in_features
+        # Here the size of each output sample is set to 2.
+        model_ft.fc = nn.Linear(num_ftrs, 2)
+        model_ft = model_ft.to(device)
 
-    # Observe that all parameters are being optimized
-    optimizer_ft = optim.SGD(model_ft.parameters(), lr=parameters['lr'], momentum=0.9, weight_decay=1e-5)
+        """
+        The parameter pos_weight:
+        * >1 -> increase recall
+        * <1 -> increase precision
+        """
+        criterion = nn.BCEWithLogitsLoss(pos_weight=torch.tensor(5.))
 
-    # Decay LR by a factor of 0.1 every 7 epochs
-    exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=parameters['step_size'], gamma=parameters['gamma'])
+        # Observe that all parameters are being optimized
+        optimizer_ft = optim.SGD(model_ft.parameters(), lr=parameters['lr'], momentum=0.9, weight_decay=1e-5)
 
-    model_ft = train_model(model_ft, criterion, optimizer_ft, exp_lr_scheduler, num_epochs=parameters['epochs'])
-    torch.save(model_ft, "./net_with_bce.pth")
+        # Decay LR by a factor of 0.1 every 7 epochs
+        exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=parameters['step_size'], gamma=parameters['gamma'])
+
+        model_ft = train_model(model_ft, criterion, optimizer_ft, exp_lr_scheduler, num_epochs=parameters['epochs'])
+        torch.save(model_ft, "./net_with_bce.pth")
 
     model = torch.load("./net_with_bce.pth")
     model.to("cpu")
@@ -177,15 +186,6 @@ if __name__ == "__main__":
     feature_extractor = torch.nn.Sequential(*list(model.children())[:-1])
 
     #TODO: we can use batch mode instead of one image at time
-    #TODO: rimuovere pos/neg dai file di test e controllare la funzione my_func
-    def image_loader(image_name):
-        #load image, returns cuda tensor
-        image = Image.open(image_name)
-        image = val_transforms(image).float()
-        image = Variable(image, requires_grad=True)
-        image = image.unsqueeze(0)  # this is for VGG, may not be needed for ResNet
-        return image.cuda()  # assumes that you're using GPU
-
     data, label, age, gender, \
     medical_history, smoker, patient_symptoms, filename = list(), list(), \
                                                           list(), list(), list(), list(), list(), list()
@@ -245,62 +245,25 @@ if __name__ == "__main__":
     table_selected.extend(['history_'+str(i) for i, _ in enumerate(med_history)])
     table_selected.extend(['symptom_'+str(i) for i, _ in enumerate(med_sym)])
 
-    """
-    Filename explanation:
-    * train/val: neg-date-CODE-cough-sex-age-nSample.jpg
-    * test     : date-CODE-cough-sex-age-nSample.jpg
-    """
-    def my_func(df_a, truel, test=False):
-        results   = []
-        if not test:
-            indexes   = [2, 4, 5]
-        else:
-            indexes = [1, 3, 4]
-
-        for name in df_a:
-            if "-"+truel.split("-")[indexes[0]]+"-" in name and \
-                    truel.split("-")[indexes[1]] + "-" + truel.split("-")[indexes[2]] in name:
-                results.append(True)
-            else:
-                results.append(False)
-        return results
-
-
-    def union_features(dataset):
-        X, y = list(), list()
-        for image, label, img_name in dataset:
-            """
-            Feature extractor, combine with the data from csv
-            """
-            image = image.unsqueeze(0)
-            outputs = feature_extractor(image)
-            outputs = outputs.view(-1).tolist()
-            sample = df.loc[my_func(df['cough_filename'], img_name), table_selected].values.tolist()
-            outputs.extend(sample[0])
-            X.append(outputs)
-            y.append(label)
-        return X, y
-
-    X_train, y_train = union_features(train_dataset)
-    X_test,  y_test  = union_features(val_dataset)
+    X_train, y_train = utils.union_features(df, train_dataset, feature_extractor, table_selected)
+    X_test,  y_test  = utils.union_features(df, val_dataset, feature_extractor, table_selected)
 
     """
     TODO: add more classifiers. From terminal an user can select the clf.
     """
-    #clf = KNeighborsClassifier(n_neighbors=7)
-    clf = RandomForestClassifier()
+    clf = parameters['clf']
     clf.fit(X_train, y_train)
     y_pred = clf.predict(X_test)
     print(classification_report(y_test, y_pred))
     """
     These lines are for the prediction of my sample
     """
-    for file_path in pathlib.Path("./img/test/").glob("*.jpg"):
-        image = image_loader(file_path).to("cpu")
+    for file_path in pathlib.Path(img_folder+"test/").glob("*.jpg"):
+        image = utils.image_loader(file_path).to("cpu")
         img_name = str(file_path).split("\\")[2].replace(".jpg", "")
         outputs = feature_extractor(image)
         outputs = outputs.view(-1).tolist()
-        sample = df.loc[my_func(df['cough_filename'], img_name, True), table_selected].values.tolist()
+        sample = df.loc[utils.my_func(df['cough_filename'], img_name, True), table_selected].values.tolist()
         outputs.extend(sample[0])
         y_pred = clf.predict([outputs])
         print(str(file_path), y_pred)
