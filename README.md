@@ -24,7 +24,7 @@ Download the files and extract them in a folder.
 
 ## Usage
 ```console
-foo@bar:~$ python path/to/the/main.py --epoch=25 --lr=0.001 --step=8 --gamma=0.2 --train=0.7 --clf=rf
+foo@bar:~$ python path/to/the/main.py path_to_img_folder --epoch=25 --lr=0.001 --step=8 --gamma=0.2 --train=0.7 --clf=rf
 ```
 
 ## Parameters ##
@@ -45,5 +45,6 @@ If you want, you can send me your recorded cough to increase the dataset size.
 - [ ] from terminal we can choose the classifier from a list.
 - [ ] dummy variables or simply LabelEncoder()? Dummy var. are in general better but PCA and some classifiers can have a problem with that.
 - [ ] use keras instead of pytorch?
+- [ ] fix the telegram bot
 - [x] Implementing BCE Loss function
 - [x] Code cleanup
